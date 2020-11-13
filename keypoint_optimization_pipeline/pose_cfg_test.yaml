@@ -1,0 +1,53 @@
+all_joints:
+- - 0
+- - 1
+- - 2
+- - 3
+- - 4
+- - 5
+all_joints_names:
+- f0
+- f1
+- f2
+- f3
+- f4
+- f5
+batch_size: 1
+#bottomheight: 400
+#crop: true
+#cropratio: 0.4
+dataset: train.mat
+dataset_type: default
+display_iters: 100
+#global_scale: 0.8
+#init_weights: /home/arclab/Desktop/vrep_data/init_weights/mobilenet_v2_0.5_224.ckpt
+init_weights: /home/arclab/Desktop/vrep_data/init_weights/resnet_v1_50.ckpt
+intermediate_supervision: false
+intermediate_supervision_layer: 12
+#leftwidth: 400
+location_refinement: true
+locref_huber_loss: true
+locref_loss_weight: 0.05
+locref_stdev: 7.2801
+#max_input_size: 1500
+#min_input_size: 64
+#minsize: 100
+mirror: false
+multi_step:
+- - 0.005
+  - 10000
+- - 0.02
+  - 30000
+- - 0.002
+  - 50000
+net_type: resnet_50
+#net_type: resnet_152
+#net_type: mobilenet_v2_0.5
+num_joints: 6
+pos_dist_thresh: 17
+project_path: /home/arclab/Desktop/baxter_data
+#rightwidth: 400
+save_iters: 10000
+#scale_jitter_lo: 0.5
+#scale_jitter_up: 1.25
+#topheight: 400
