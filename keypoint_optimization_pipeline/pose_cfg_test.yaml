@@ -5,6 +5,7 @@ all_joints:
 - - 3
 - - 4
 - - 5
+- - 6
 all_joints_names:
 - f0
 - f1
@@ -12,6 +13,7 @@ all_joints_names:
 - f3
 - f4
 - f5
+- f6
 batch_size: 1
 #bottomheight: 400
 #crop: true
@@ -43,7 +45,7 @@ multi_step:
 net_type: resnet_50
 #net_type: resnet_152
 #net_type: mobilenet_v2_0.5
-num_joints: 6
+num_joints: 7
 pos_dist_thresh: 17
 project_path: /home/arclab/Desktop/baxter_data
 #rightwidth: 400
