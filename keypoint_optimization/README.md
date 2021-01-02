@@ -1,6 +1,6 @@
 ## keypoint optimization pipeline
 
-1. Generating training and testing images
+1. Generating training and testing images and labels ('images' folder, 'test' folder, and 'data' label file)
 2. Run optimization pipeline to find optimial keypoints
 
 ### Miodifications might need to make in "pose_cfg_test.yaml"

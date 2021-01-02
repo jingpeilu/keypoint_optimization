@@ -4,6 +4,8 @@ from multiprocessing import Pool
 import numpy as np
 import pickle
 import yaml
+import argparse
+
 
 class Optimization:
     def __init__(self, label_file = 'data', config = "pose_cfg_test.yaml"):
@@ -98,8 +100,13 @@ class Optimization:
 
 if __name__ == "__main__":
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument('n_iter', type=int, help='number of iterations')
+    args = parser.parse_args()
+
+
     kp_optimization = Optimization()
-    kp_optimization.run_iteration(10)
+    kp_optimization.run_iteration(args.n_iter)
 
 
 
