@@ -86,8 +86,11 @@ def format_training_data(label_file,train_index, feature_idx, project_path):
     matlab_data = np.asarray(matlab_data, dtype=[('image', 'O'), ('size', 'O'), ('joints', 'O')])
     return train_data, matlab_data
 
-def prepare_dataset(image_number:int, feature_idx:list, project_path = "/home/arclab/Desktop/baxter_data"):
+def prepare_dataset(image_number:int, feature_idx:list, config:str):
+    with open(config) as file:
+        config_list = yaml.load(file, Loader=yaml.FullLoader)
 
+    project_path = config_list['project_path']
     train_index = list(range(image_number))
     data, MatlabData = format_training_data('data',train_index, feature_idx, project_path)
     datafilename = "train.mat"
@@ -178,11 +181,6 @@ def overwrite_image(image, points_predicted,scores):
             image = cv2.putText(image, str(i) + " " + str(round(scores[i],2)), tuple(points), cv2.FONT_HERSHEY_SIMPLEX,0.5, (0,0,255), 1, cv2.LINE_AA)  
     return image
 
-def extract_edge(img):
-    img = img * 255
-    img = np.uint8(img)
-    edges = cv2.Canny(img,100,200)
-    return edges
 
 def _read_image_shape_fast(path):
     return cv2.imread(path).shape

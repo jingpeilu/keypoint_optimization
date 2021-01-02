@@ -18,7 +18,7 @@ batch_size: 1
 #bottomheight: 400
 #crop: true
 #cropratio: 0.4
-dataset: train.mat
+dataset: /home/arclab/Desktop/baxter_data/train.mat
 dataset_type: default
 display_iters: 100
 #global_scale: 0.8
