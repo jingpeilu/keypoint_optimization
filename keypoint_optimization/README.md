@@ -1,7 +1,11 @@
 ## keypoint optimization pipeline
 
-1. Generating training and testing images and labels ('images' folder, 'test' folder, and 'data' label file)
-2. Run optimization pipeline to find optimial keypoints
+1. Getting the training and testing images and labels (move 'images' folder, 'test' folder, and 'data' label file from data_generation to this directory)
+2. Editing "pose_cfg_test.yaml"
+3. Run optimization pipeline to find optimial keypoints
+```
+python optimization_alg.py [number of iteration]
+```
 
 ### Miodifications might need to make in "pose_cfg_test.yaml"
 
