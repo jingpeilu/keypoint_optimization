@@ -21,13 +21,13 @@ from skimage.transform import resize
 import skimage.color
 from skimage.util import img_as_ubyte
 import scipy.io as sio
+import transforms3d.quaternions as quaternions
 
-from deeplabcut import DEBUG
+
 from deeplabcut.utils import auxiliaryfunctions, conversioncode, auxfun_models, visualization
 from deeplabcut.pose_estimation_tensorflow import training
-from deeplabcut.pose_estimation_tensorflow.nnet import predict as ptf_predict
+from deeplabcut.pose_estimation_tensorflow.core import predict as ptf_predict
 from deeplabcut.pose_estimation_tensorflow.config import load_config
-from deeplabcut.pose_estimation_tensorflow.dataset.pose_dataset import data_to_input
 import tensorflow as tf
 
 
@@ -105,26 +105,19 @@ def train_network(poseconfigfile,shuffle=1,trainingsetindex=0,
                   allow_growth=False,gputouse=None,autotune=False,keepdeconvweights=True):
 
     import tensorflow as tf
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.6)
-    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
 
-    vers = (tf.__version__).split('.')
-    if int(vers[0])==1 and int(vers[1])>12:
-        TF=tf.compat.v1
-    else:
-        TF=tf
-
-    #reload logger.
+    # reload logger.
     import importlib
     import logging
+
     importlib.reload(logging)
     logging.shutdown()
 
-    from deeplabcut.pose_estimation_tensorflow.train import train
+    from deeplabcut.pose_estimation_tensorflow.core.train import train
     from deeplabcut.utils import auxiliaryfunctions
 
-    TF.reset_default_graph()
-    start_path=os.getcwd()
+    tf.compat.v1.reset_default_graph()
+    start_path = os.getcwd()
 
     # Read file path for pose_config file. >> pass it on
     #cfg = auxiliaryfunctions.read_config(config)
@@ -143,6 +136,7 @@ def train_network(poseconfigfile,shuffle=1,trainingsetindex=0,
     finally:
         os.chdir(str(start_path))
     print("The network is now trained and ready to evaluate. Use the function 'evaluate_network' to evaluate the network.")
+    
 
 #################### functions for evaluation #################
 
@@ -185,6 +179,19 @@ def overwrite_image(image, points_predicted,scores):
 def _read_image_shape_fast(path):
     return cv2.imread(path).shape
 
+
+def get_camera_matrix(x_resolution = 640, y_resolution = 480, fov = np.pi/3):
+    if (x_resolution/y_resolution) > 1:
+        fov_x = fov
+        fov_y = 2 * np.arctan(np.tan(fov/2) / (x_resolution/y_resolution))
+    else:
+        fov_x = 2 * np.arctan(np.tan(fov/2) / (x_resolution/y_resolution))
+        fov_y = fov
+    P = np.array([[-(x_resolution/2)/np.tan(0.5*fov_x),0,(x_resolution/2)],
+                  [0,-(y_resolution/2)/np.tan(0.5*fov_y),(y_resolution/2)],
+                  [0,0,1]])
+    return P
+
 def get_gt(filename,feature_idx,df):
     img_shape = _read_image_shape_fast(filename)
     joints = df[filename].astype(int)#joints[~np.isnan(joints).any(axis=1)].astype(int) # nX3 np.array (joint_num,x,y)
@@ -215,10 +222,15 @@ def overwrite_image_with_gt(image, results, gt):
         image = cv2.putText(image, str(score), tuple(results[i][:2].astype(int)), cv2.FONT_HERSHEY_SIMPLEX,0.5, (255,255,0), 1, cv2.LINE_AA)  
     return image
 
-def evaluate(feature_idx, weights_path = 'pose_cfg_test.yamlsnapshot-50000', config= "pose_cfg_test.yaml", label_file = "test/data"):
+def pose_to_matrix(pose):
+    t = pose[:3].reshape(3,1)
+    quat_tmp = pose[3:]
+    quat = [quat_tmp[3],quat_tmp[0],quat_tmp[1],quat_tmp[2]]
+    R = quaternions.quat2mat(quat)
+    T = np.vstack((np.hstack((R,t)),[0,0,0,1]))
+    return T
 
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.6)
-    sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+def evaluate(feature_idx, weights_path = 'pose_cfg_test.yamlsnapshot-50000', config= "pose_cfg_test.yaml", label_file = "test/data", pose_label_file = "test/pose"):
 
     gputouse = None
     use_gpu = False
@@ -231,62 +243,51 @@ def evaluate(feature_idx, weights_path = 'pose_cfg_test.yamlsnapshot-50000', con
     # SETUP everything until image prediction
     ##################################################
 
-    if 'TF_CUDNN_USE_AUTOTUNE' in os.environ:
-        del os.environ['TF_CUDNN_USE_AUTOTUNE']  # was potentially set during training
+    if "TF_CUDNN_USE_AUTOTUNE" in os.environ:
+        del os.environ["TF_CUDNN_USE_AUTOTUNE"]  # was potentially set during training
 
-    vers = tf.__version__.split('.')
-    if int(vers[0]) == 1 and int(vers[1]) > 12:
-        TF = tf.compat.v1
-    else:
-        TF = tf
+    if gputouse is not None:  # gpu selection
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(gputouse)
 
-    TF.reset_default_graph()
-
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-    #tf.logging.set_verbosity(tf.logging.WARN)
-
-    start_path = os.getcwd()
-
-    # Read file path for pose_config file. >> pass it on
-    if gputouse is not None:  # gpu selectinon
-        os.environ['CUDA_VISIBLE_DEVICES'] = str(gputouse)
-
-    ##################################################
-    # Load and setup CNN part detector
-    ##################################################
-
-    #modelfolder = os.path.join(cfg["project_path"], str(auxiliaryfunctions.GetModelFolder(trainFraction, shuffle, cfg)))
-    path_test_config = config
-    # Load meta data
-    # data, trainIndices, testIndices, trainFraction = auxiliaryfunctions.LoadMetadata(
-    #     os.path.join(cfg["project_path"], metadatafn))
+    tf.compat.v1.reset_default_graph()
 
     try:
-        dlc_cfg = load_config(str(path_test_config))
+        dlc_cfg = load_config(str(config))
     except FileNotFoundError:
         raise FileNotFoundError(
-            "It seems the model for shuffle s and trainFraction %s does not exist.")
+            "It seems the model for shuffle %s and trainFraction %s does not exist."
+            % (shuffle, trainFraction)
+        )
 
     dlc_cfg['init_weights'] = weights_path
     print("Running the weights: " + dlc_cfg['init_weights'])
 
-
     # Using GPU for prediction
     # Specifying state of model (snapshot / training state)
-    if use_gpu:
-        sess, inputs, outputs = ptf_predict.setup_GPUpose_prediction(dlc_cfg)
-        pose_tensor = ptf_predict.extract_GPUprediction(outputs, dlc_cfg)
-    else:
-        sess, inputs, outputs = ptf_predict.setup_pose_prediction(dlc_cfg)
+    sess, inputs, outputs = ptf_predict.setup_pose_prediction(dlc_cfg,allow_growth=True)
         
+    from baxter_fk import Baxter_FK
+    baxter = Baxter_FK("keypoint_config.json")
+
+    # load ground truth label    
     infile = open(label_file,'rb')
     df = pickle.load(infile)
     infile.close()
     key_list = list(df.keys())
+
+    infile = open(pose_label_file,'rb')
+    df_pose = pickle.load(infile)
+    infile.close()
     
     error_list = []
     confidence_list = []
     feature_index_list = []
+    err_3d_list = []
+
+    try:  
+        os.mkdir("evaluate") 
+    except OSError as error:  
+        print(error)  
 
     for i in range(len(key_list)):
         img_file = key_list[i]
@@ -300,33 +301,70 @@ def evaluate(feature_idx, weights_path = 'pose_cfg_test.yamlsnapshot-50000', con
 
         #rgb_image = cv2.imread(img_file.replace("edges","images"))
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        img = overwrite_image_with_gt(rgb_image, results, gt) 
-        plt.imsave("evaluate/"+ str(i) + ".png",img)
+
+
+        # keypoint 3d position
+        joints = df_pose[img_file]['joints']
+
+        points_3d = np.zeros((1,3))
+        for f_id in list(np.array(feature_idx)[gt[:,0]]):
+            points_3d = np.vstack((points_3d,baxter.get_3d_position_to_bl(f_id,joints).reshape(-1)[:3]))
+        points_3d = points_3d[1:,:].astype(np.float32)
+        
+        # using EPnP to find the cam-to-base transform
+        retval,rvec,tvec = cv2.solvePnP(points_3d, points_predicted.astype(float),get_camera_matrix(),distCoeffs = None, flags = 1)
+        R,_ = cv2.Rodrigues(rvec)
+        quat_tmp = quaternions.mat2quat(R)
+        quat = [quat_tmp[1],quat_tmp[2],quat_tmp[3],quat_tmp[0]]
+        pose = np.hstack((R,tvec))
+        pred_pose = np.vstack((pose,[0,0,0,1]))
+        
+        # 3d keypoints
+        v_cam = pred_pose @ np.concatenate((points_3d,np.ones((points_3d.shape[0],1))), axis = 1).T
+        v_cam_dehomogenize = v_cam[:3,:] / v_cam[3,:]
+
+        gt_pose = pose_to_matrix(np.array(df_pose[img_file]['b_T_c']))
+        v_cam_gt = gt_pose @ np.concatenate((points_3d,np.ones((points_3d.shape[0],1))), axis = 1).T
+        v_cam_dehomogenize_gt = v_cam_gt[:3,:] / v_cam_gt[3,:]
+
+        #img = overwrite_image_with_gt(rgb_image, results, gt) 
+        #plt.imsave("evaluate/"+ str(i) + ".png",img)
 
         for j in range(gt.shape[0]):
             feature_index_list.append(gt[j,0])
             err = np.linalg.norm(gt[j,1:] - points_predicted[j])
             error_list.append(err)
+        
+            err_3d = np.linalg.norm(v_cam_dehomogenize[:,j] - v_cam_dehomogenize_gt[:,j])
+            err_3d_list.append(err_3d)
             confidence_list.append(scores[j])
+
             
     confidence_list = np.array(confidence_list)
     error_list = np.array(error_list)
     feature_index_list = np.array(feature_index_list)
+    err_3d_list = 50 * np.array(err_3d_list)
 
     # write data in a file. 
     file1 = open("statistic.txt","a") 
     
     file1.write("Average error: " + str(np.mean(error_list)) + " (" + str(np.std(error_list)) + ")" + "\n")
+    file1.write("Average 3d error: " + str(np.mean(err_3d_list)) + " (" + str(np.std(err_3d_list)) + ")" + "\n")
+    file1.write("Total error: " + str(np.mean(err_3d_list)+ np.mean(error_list)) + "\n")
     err_list = list()
     for i in range(len(feature_idx)):
         idx = np.where(feature_index_list == i)
         avg_err = np.mean(error_list[idx])
         std_err = np.std(error_list[idx])
+        avg_err_3d = np.mean(err_3d_list[idx])
+        std_err_3d = np.std(err_3d_list[idx])
+
         avg_confidence = np.mean(confidence_list[idx])
-        err_list.append(np.around(avg_err,2))
+        err_list.append(np.around(avg_err + avg_err_3d,2))
         file1.write("Feature #" + str(i) 
               + " avg_err: " + str(np.around(avg_err,2)) + " (" + str(np.around(std_err,2)) + ")"
-              + " avg_confidence: " + str(np.around(avg_confidence,5))+ "\n")
+              + " avg_err_3d: " + str(np.around(avg_err_3d,2)) + " (" + str(np.around(std_err_3d,2)) + ")"
+              + " total err: " + str(np.around(avg_err + avg_err_3d,2))+ "\n")
     file1.write("\n")
     file1.close() #to change file access modes 
 
@@ -334,7 +372,6 @@ def evaluate(feature_idx, weights_path = 'pose_cfg_test.yamlsnapshot-50000', con
 
 
     
-
 
 
 
