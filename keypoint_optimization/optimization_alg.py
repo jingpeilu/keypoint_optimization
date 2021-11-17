@@ -31,15 +31,17 @@ class Optimization:
         for i in range(len(self.feature_idx)):
             self.keypoints[self.feature_idx[i]] = self.weights[i]
         # define groups
-        self.groups = [list(range(self.n_candiates))]
-    
+        #self.groups = [[0,1,2],[3,4,5],[6,7,8],[9,10,11],[12,13,14],[15,16,17],[18,19,20]] #[[0,1,2],[3,4,5]]
+        #self.n_per_group = 1
+        self.groups = [[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]] #[[0,1,2],[3,4,5]]
+        self.n_per_group = 7
 
 
     def softmax(self, x):
         e_x = np.exp(x - np.max(x))
         return e_x/ e_x.sum(axis=0)
 
-    def update_weights(self,S,S_err,keypoints, gamma = 1):
+    def update_weights(self,S,S_err,keypoints, gamma = 2):
         w_sum = 0
     
         for i in S:        
@@ -52,39 +54,45 @@ class Optimization:
         
         return keypoints
 
-    def keypoins_sampling(self, groups, feature_idx, weights,n_per_group):
+    def keypoins_sampling(self, groups, feature_idx, weights, n_per_group):
         S = []
         for group in groups:
             tmp_idx = [feature_idx[i] for i in group] 
             tmp_weights = [weights[i] for i in group] 
             scale = 1/np.sum(tmp_weights)
             tmp_weights = np.array(tmp_weights) * scale
+
             index = np.random.choice(tmp_idx, size = n_per_group, p = tmp_weights, replace = False)
-            S.append(index)
+            for ind in index:
+                S.append(ind)
         return S
 
     def run_iteration(self,n_iteration):
 
         for i in range(n_iteration):
-            S = self.keypoins_sampling(self.groups, self.feature_idx, self.weights, self.n_keypoints)[0].tolist()
+            S = self.keypoins_sampling(self.groups, self.feature_idx, self.weights, self.n_per_group)
             print(S)
-            print("Iteration: " + str(i))
+            print("------------- Iteration: " + str(i) + "---------------")
             file1 = open("statistic.txt","a") 
             file1.write("Iteration: " + str(i) + "\n")
             file1.write(str(S) + "\n")
+            file1.write(str(self.weights) + "\n")
             file1.close()
 
             # prepare dataset
+            print("---------preparing dataset----------")
             p = multiprocessing.Process(target=prepare_dataset,args=(self.image_num,S,self.config))
             p.start()
             p.join()
 
             # train network
+            print("---------training----------")
             p = multiprocessing.Process(target=train_network,args=(self.config,))
             p.start()
             p.join()
 
             # run evaluation
+            print("---------evaluating----------")
             with Pool(processes=4) as pool:
                 result = pool.map(evaluate, [S])
 
@@ -107,6 +115,8 @@ if __name__ == "__main__":
 
     kp_optimization = Optimization()
     kp_optimization.run_iteration(args.n_iter)
+
+
 
 
 
