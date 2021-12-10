@@ -18,12 +18,12 @@ batch_size: 1
 #bottomheight: 400
 #crop: true
 #cropratio: 0.4
-dataset: /home/arclab/Desktop/baxter_data/train.mat
+dataset: /home/jingpei/Desktop/keypoint_optimization/keypoint_optimization/train.mat
 dataset_type: default
 display_iters: 100
 #global_scale: 0.8
 #init_weights: /home/arclab/Desktop/vrep_data/init_weights/mobilenet_v2_0.5_224.ckpt
-init_weights: /home/arclab/Desktop/vrep_data/init_weights/resnet_v1_50.ckpt
+init_weights: /home/jingpei/Desktop/keypoint_optimization-main/data_generation/pretrained_model/resnet_v1_50.ckpt
 intermediate_supervision: false
 intermediate_supervision_layer: 12
 #leftwidth: 400
@@ -47,7 +47,7 @@ net_type: resnet_50
 #net_type: mobilenet_v2_0.5
 num_joints: 7
 pos_dist_thresh: 17
-project_path: /home/arclab/Desktop/baxter_data
+project_path: /home/jingpei/Desktop/keypoint_optimization/keypoint_optimization
 #rightwidth: 400
 save_iters: 10000
 #scale_jitter_lo: 0.5
