@@ -1,4 +1,4 @@
-# Pose Estimation for Robot Manipulators via Keypoint Optmization and Sim-to-Real Transfer
+# Pose Estimation for Robot Manipulators via Keypoint Optimization and Sim-to-Real Transfer
 
 Github repo for "Pose Estimation for Robot Manipulators via Keypoint Optmization and Sim-to-Real Transfer"
 
