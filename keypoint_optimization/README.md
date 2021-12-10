@@ -1,6 +1,6 @@
 ## keypoint optimization pipeline
 
-1. Getting the training and testing images and labels (move 'images' folder, 'test' folder, and 'data' label file from data_generation to this directory)
+1. Getting the training and testing images and labels (should have 'images' folder, 'test' folder, and 'data' label file from data_generation to this directory)
 2. Editing "pose_cfg_test.yaml"
 3. Run optimization pipeline to find optimial keypoints
 ```
