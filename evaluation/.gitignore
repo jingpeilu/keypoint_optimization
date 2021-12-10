@@ -1,0 +1,10 @@
+.ipynb_checkpoints
+__pycache__
+log/
+images/
+test/
+log.txt
+learning_stats.csv
+statistic.txt
+train.mat
+data
